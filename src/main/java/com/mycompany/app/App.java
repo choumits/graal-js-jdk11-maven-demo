@@ -55,61 +55,104 @@ public class App {
 
     public static final int WARMUP = 15;
     public static final int ITERATIONS = 10;
-    public static final String BENCHFILE = "src/bench.js";
 
-    public static final String SOURCE = ""
-            + "var N = 2000;\n"
-            + "var EXPECTED = 17393;\n"
-            + "\n"
-            + "function Natural() {\n"
-            + "    x = 2;\n"
-            + "    return {\n"
-            + "        'next' : function() { return x++; }\n"
-            + "    };\n"
-            + "}\n"
-            + "\n"
-            + "function Filter(number, filter) {\n"
-            + "    var self = this;\n"
-            + "    this.number = number;\n"
-            + "    this.filter = filter;\n"
-            + "    this.accept = function(n) {\n"
-            + "      var filter = self;\n"
-            + "      for (;;) {\n"
-            + "          if (n % filter.number === 0) {\n"
-            + "              return false;\n"
-            + "          }\n"
-            + "          filter = filter.filter;\n"
-            + "          if (filter === null) {\n"
-            + "              break;\n"
-            + "          }\n"
-            + "      }\n"
-            + "      return true;\n"
-            + "    };\n"
-            + "    return this;\n"
-            + "}\n"
-            + "\n"
-            + "function Primes(natural) {\n"
-            + "    var self = this;\n"
-            + "    this.natural = natural;\n"
-            + "    this.filter = null;\n"
-            + "\n"
-            + "    this.next = function() {\n"
-            + "        for (;;) {\n"
-            + "            var n = self.natural.next();\n"
-            + "            if (self.filter === null || self.filter.accept(n)) {\n"
-            + "                self.filter = new Filter(n, self.filter);\n"
-            + "                return n;\n"
-            + "            }\n"
-            + "        }\n"
-            + "    };\n"
-            + "}\n"
-            + "\n"
-            + "function primesMain() {\n"
-            + "    var primes = new Primes(Natural());\n"
-            + "    var primArray = [];\n"
-            + "    for (var i=0;i<=N;i++) { primArray.push(primes.next()); }\n"
-            + "    if (primArray[N] != EXPECTED) { throw new Error('wrong prime found: '+primArray[N]); }\n"
-            + "}\n";
+    /*
+     * Compile code using the TypeScript compiler while loading the ECMA2020 language definition to be able to do
+     * type checking for native types.
+     */
+    public static final String COMPILE_TS = "function compileTypescript() {\n" +
+            "\n" +
+            "  const inputSourceCode = \"function add(val1 : string, val2 : string) { return val1 + val2}\";\n" +
+            "\n" +
+            "  const options = ts.getDefaultCompilerOptions();\n" +
+            "  options.target = ts.ScriptTarget.ES2020;\n" +
+            "\n" +
+            "  let outputCode = undefined;\n" +
+            "\n" +
+            "  const fileName = 'file.ts';\n" +
+            "\n" +
+            "  const host = createCompilerHost(fileName, inputSourceCode, (data) => outputCode = data);\n" +
+            "\n" +
+            "  const program = ts.createProgram([fileName], options, host);\n" +
+            "\n" +
+            "  program.emit();\n" +
+            "\n" +
+            "  return outputCode;\n" +
+            "}\n" +
+            "function createCompilerHost(fileName, inputSourceCode, writeFile) {\n" +
+            "  const sourceFile = ts.createSourceFile(fileName, inputSourceCode, ts.ScriptTarget.ES2020);\n" +
+            "\n" +
+            "  return {\n" +
+            "    fileExists: (filePath) => filePath === fileName,\n" +
+            "    directoryExists: (dirPath) => dirPath === '/',\n" +
+            "    getCurrentDirectory: () => '/',\n" +
+            "    getDirectories: () => [],\n" +
+            "    getCanonicalFileName: (fileName) => fileName,\n" +
+            "    getNewLine: () => '\\n',\n" +
+            "    getDefaultLibFileName: function() { return 'lib.es2020.d.ts'; },\n" +
+            "    getDefaultLibLocation: () => '',\n" +
+            "\n" +
+            "    getSourceFile: (filePath) => {\n" +
+            "      if (filePath === fileName) {\n" +
+            "        return sourceFile;\n" +
+            "      } else {\n" +
+            "        return ts.createSourceFile(filePath, getLibFileContent(filePath), ts.ScriptTarget.ES2020);\n" +
+            "      }\n" +
+            "    },\n" +
+            "    readFile: (filePath) => filePath === fileName ? inputSourceCode : undefined,\n" +
+            "    useCaseSensitiveFileNames: () => true,\n" +
+            "    writeFile: (fileName, data) => writeFile(data),\n" +
+            "  };\n" +
+            "}\n";
+
+    /*
+     * Compile code using the TypeScript compiler without doing any type checking or loading the libraries necessary
+     * to do so.
+     */
+    public static final String COMPILE_TS_NO_TYPE_CHECK = "function compileTypescript() {\n" +
+            "\n" +
+            "  let inputSourceCode = \"function add(val1, val2) { return val1 + val2}\";\n" +
+            "\n" +
+            "  const options = ts.getDefaultCompilerOptions();\n" +
+            "  options.target = ts.ScriptTarget.ES2020;\n" +
+            "\n" +
+            "  let outputCode = undefined;\n" +
+            "\n" +
+            "  const fileName = 'file.ts';\n" +
+            "\n" +
+            "  const host = createCompilerHost(fileName, inputSourceCode, (data) => outputCode = data);\n" +
+            "\n" +
+            "  const program = ts.createProgram([fileName], options, host);\n" +
+            "\n" +
+            "  program.emit();\n" +
+            "\n" +
+            "  return outputCode;\n" +
+            "}\n" +
+            "function createCompilerHost(fileName, inputSourceCode, writeFile) {\n" +
+            "  const sourceFile = ts.createSourceFile(fileName, inputSourceCode, ts.ScriptTarget.ES2020);\n" +
+            "\n" +
+            "  return {\n" +
+            "    fileExists: (filePath) => filePath === fileName,\n" +
+            "    directoryExists: (dirPath) => dirPath === '/',\n" +
+            "    getCurrentDirectory: () => '/',\n" +
+            "    getDirectories: () => [],\n" +
+            "    getCanonicalFileName: (fileName) => fileName,\n" +
+            "    getNewLine: () => '\\n',\n" +
+            "    getDefaultLibFileName: () => '',\n" +
+            "    getDefaultLibLocation: () => '',\n" +
+            "\n" +
+            "    getSourceFile: (filePath) => {\n" +
+            "      if (filePath === fileName) {\n" +
+            "        return sourceFile;\n" +
+            "      } else {\n" +
+            "        return ts.createSourceFile(filePath, getLibFileContent(filePath), ts.ScriptTarget.ES2020);\n" +
+            "      }\n" +
+            "    },\n" +
+            "    readFile: (filePath) => filePath === fileName ? inputSourceCode : undefined,\n" +
+            "    useCaseSensitiveFileNames: () => true,\n" +
+            "    writeFile: (fileName, data) => writeFile(data),\n" +
+            "  };\n" +
+            "}\n";
 
     public static void main(String[] args) throws Exception {
         benchGraalPolyglotContext();
@@ -121,16 +164,21 @@ public class App {
         System.out.println("=== Graal.js via org.graalvm.polyglot.Context === ");
         long sum = 0;
         try (Context context = Context.create()) {
-            context.eval(Source.newBuilder("js", SOURCE, "src.js").build());
-            Value primesMain = context.getBindings("js").getMember("primesMain");
+            context.eval(Source.newBuilder("js", (new ResourceLoader()).loadReader("/typescript.js"),
+                    "typescript.js").build());
+            context.eval(Source.newBuilder("js", (new ResourceLoader()).loadReader("/libPack.js"),
+                    "libPack.js").build());
+            context.eval(Source.newBuilder("js", COMPILE_TS, "src.js").build());
+            Value compileMain = context.getBindings("js").getMember("compileTypescript");
+
             System.out.println("warming up ...");
             for (int i = 0; i < WARMUP; i++) {
-                primesMain.execute();
+                compileMain.execute();
             }
             System.out.println("warmup finished, now measuring");
             for (int i = 0; i < ITERATIONS; i++) {
                 long start = System.currentTimeMillis();
-                primesMain.execute();
+                compileMain.execute();
                 long took = System.currentTimeMillis() - start;
                 sum += took;
                 System.out.println("iteration: " + took);
@@ -164,16 +212,18 @@ public class App {
     private static long benchScriptEngineIntl(ScriptEngine eng) throws IOException {
         long sum = 0L;
         try {
-            eng.eval(SOURCE);
+            eng.eval((new ResourceLoader()).loadReader("/typescript.js"));
+            eng.eval((new ResourceLoader()).loadReader("/libPack.js"));
+            eng.eval(COMPILE_TS);
             Invocable inv = (Invocable) eng;
             System.out.println("warming up ...");
             for (int i = 0; i < WARMUP; i++) {
-                inv.invokeFunction("primesMain");
+                inv.invokeFunction("compileTypescript");
             }
             System.out.println("warmup finished, now measuring");
             for (int i = 0; i < ITERATIONS; i++) {
                 long start = System.currentTimeMillis();
-                inv.invokeFunction("primesMain");
+                inv.invokeFunction("compileTypescript");
                 long took = System.currentTimeMillis() - start;
                 sum += took;
                 System.out.println("iteration: " + (took));
